@@ -16,6 +16,8 @@ This repository contains a high-performance web scraper and web server written i
 
 2. **PostgreSQL (Optional)**: If you wish to use a database for storing scrape results, install PostgreSQL and set up a database, user, and necessary permissions.
 
+3.**Goose (Mandatory for PostgreSQL)** [https://github.com/pressly/goose] (https://github.com/chromedp/chromedp)
+
 ## Installation
 
 To set up the web scraper/web server:
@@ -23,10 +25,12 @@ To set up the web scraper/web server:
 1. Clone the repository and navigate to the project directory.
 2. Copy the example environment file and modify it according to your needs, especially the secret key:
 ```bash
+go get -u github.com/chromedp/chromedp
 cp working.env .env
 go build
-sudo vim ./pkg/up.sh 
-./pkg/up.sh #migrate db
+go install github.com/pressly/goose/v3/cmd/goose@latest
+sudo vim ./pkg/up.sh # Adjust 
+./pkg/up.sh #Migrate db
 ```
 
 ## Useage
@@ -43,7 +47,7 @@ With the server up and running, it interacts with HTTP requests as follows:
 - **POST for Concurrent Page Scraping**:
     To scrape multiple pages concurrently for external links, send a POST request to `http://127.0.0.1:3333/dbscrapepages` with an Authorization header containing your key (`key yourkey`) and a JSON payload listing the URLs:
     ```json
-    {"urls":["https://example.com","https://example.de"]}
+    {"urls":["https://example.com","https://example2.de"]}
     ```
 
 - **GET Scraping Results**:
