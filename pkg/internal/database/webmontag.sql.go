@@ -79,16 +79,16 @@ func (q *Queries) GetAllPages(ctx context.Context) ([]Page, error) {
 }
 
 const getLinksByPageID = `-- name: GetLinksByPageID :many
-SELECT l.id, l.domain, l.isValid
+SELECT l.id, l.domain, l.statusCode
 FROM links l
 INNER JOIN pageslinks pl ON l.id = pl.links_id
 WHERE pl.pages_id = $1
 `
 
 type GetLinksByPageIDRow struct {
-	ID      int32          `json:"id"`
-	Domain  sql.NullString `json:"domain"`
-	Isvalid sql.NullBool   `json:"isvalid"`
+	ID         int32          `json:"id"`
+	Domain     sql.NullString `json:"domain"`
+	Statuscode sql.NullInt32  `json:"statuscode"`
 }
 
 func (q *Queries) GetLinksByPageID(ctx context.Context, pagesID sql.NullInt32) ([]GetLinksByPageIDRow, error) {
@@ -100,7 +100,7 @@ func (q *Queries) GetLinksByPageID(ctx context.Context, pagesID sql.NullInt32) (
 	var items []GetLinksByPageIDRow
 	for rows.Next() {
 		var i GetLinksByPageIDRow
-		if err := rows.Scan(&i.ID, &i.Domain, &i.Isvalid); err != nil {
+		if err := rows.Scan(&i.ID, &i.Domain, &i.Statuscode); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -150,7 +150,7 @@ const insertOrGetLink = `-- name: InsertOrGetLink :one
 /* -- name: CreateLink :many
 INSERT INTO links (domain) VALUES ($1) RETURNING id; */
 
-INSERT INTO links (domain,isValid)
+INSERT INTO links (domain,statusCode)
 VALUES ($1,$2)
 ON CONFLICT (domain) DO UPDATE 
 SET domain = EXCLUDED.domain
@@ -158,12 +158,12 @@ RETURNING id
 `
 
 type InsertOrGetLinkParams struct {
-	Domain  sql.NullString `json:"domain"`
-	Isvalid sql.NullBool   `json:"isvalid"`
+	Domain     sql.NullString `json:"domain"`
+	Statuscode sql.NullInt32  `json:"statuscode"`
 }
 
 func (q *Queries) InsertOrGetLink(ctx context.Context, arg InsertOrGetLinkParams) (int32, error) {
-	row := q.db.QueryRowContext(ctx, insertOrGetLink, arg.Domain, arg.Isvalid)
+	row := q.db.QueryRowContext(ctx, insertOrGetLink, arg.Domain, arg.Statuscode)
 	var id int32
 	err := row.Scan(&id)
 	return id, err

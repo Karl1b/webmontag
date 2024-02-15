@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -22,8 +22,8 @@ type subPage struct {
 }
 
 type externalLink struct {
-	Url     string `json:"url"`
-	IsValid bool   `json:"isValid"`
+	Url        string `json:"url"`
+	Statuscode int    `json:"statusCode"`
 }
 
 type pageDetails struct {
@@ -105,8 +105,8 @@ func StartScraper(rawURL string, queries *database.Queries) {
 		for _, externalLink := range page.ExternalLinks {
 
 			externalLinkID, err := queries.InsertOrGetLink(context.Background(), database.InsertOrGetLinkParams{
-				Domain:  sql.NullString{String: externalLink.Url, Valid: true},
-				Isvalid: sql.NullBool{Bool: externalLink.IsValid, Valid: true},
+				Domain:     sql.NullString{String: externalLink.Url, Valid: true},
+				Statuscode: sql.NullInt32{Int32: int32(externalLink.Statuscode), Valid: true},
 			})
 			if err != nil {
 				fmt.Print("InsertLink Error")
@@ -195,7 +195,7 @@ func getLinks(ctx context.Context, page *pageDetails) error {
 
 		} else {
 			if !containsExternalLink(page.ExternalLinks, link) {
-				page.ExternalLinks = append(page.ExternalLinks, externalLink{Url: link, IsValid: false})
+				page.ExternalLinks = append(page.ExternalLinks, externalLink{Url: link, Statuscode: 0})
 			}
 		}
 	}
@@ -256,19 +256,18 @@ func checkExternalLinks(page *pageDetails, opts *[]func(*chromedp.ExecAllocator)
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, Options.maxGoRoutines) // Create a semaphore with a capacity of 5
 
-	for i, extLink := range page.ExternalLinks {
-		if !extLink.IsValid {
+	for i, _ := range page.ExternalLinks {
 
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				semaphore <- struct{}{}
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			semaphore <- struct{}{}
 
-				checkExternalLink(&page.ExternalLinks[i], page, opts)
+			checkExternalLink(&page.ExternalLinks[i], page, opts)
 
-				<-semaphore
-			}(i)
-		}
+			<-semaphore
+		}(i)
+
 	}
 	wg.Wait()
 
@@ -292,26 +291,20 @@ func checkExternalLink(extLink *externalLink, page *pageDetails, opts *[]func(*c
 		return
 	}
 
-	var pageTitle, bodyContent string
-	err := chromedp.Run(ctxWithTimeout,
-		chromedp.Navigate(url),
-		chromedp.Title(&pageTitle), // Capture the page title
-		chromedp.Text("body", &bodyContent, chromedp.NodeVisible, chromedp.ByQuery), // Attempt to capture visible body text
-	)
+	statuscode, err := getHTTPStatusCode(url)
 	if err != nil {
-		log.Printf("Failed to navigate to domain: %s, error: %v", url, err)
-		return
+		statuscode = 999
 	}
 
-	if pageTitle == "" || bodyContent == "" {
-		log.Printf("Page load failed or content is not accessible for URL: %s", url)
-	} else {
-		extLink.IsValid = true
-		log.Printf("Page loaded successfully with title: %s for URL: %s", pageTitle, url)
-		return
-		// Here you can fill the `page` details if needed, based on what you capture
+	extLink.Statuscode = statuscode
+
+}
+
+func getHTTPStatusCode(url string) (int, error) {
+	resp, err := http.Head(url)
+	if err != nil {
+		return 0, err
 	}
-
-	extLink.IsValid = false
-
+	defer resp.Body.Close()
+	return resp.StatusCode, nil
 }

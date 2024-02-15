@@ -187,8 +187,8 @@ func dbseepages(queries *database.Queries) http.HandlerFunc {
 			}
 			for _, link := range links {
 				newPageDetails.ExternalLinks = append(newPageDetails.ExternalLinks, externalLink{
-					Url:     link.Domain.String,
-					IsValid: link.Isvalid.Bool,
+					Url:        link.Domain.String,
+					Statuscode: int(link.Statuscode.Int32),
 				})
 			}
 

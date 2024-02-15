@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE links (
     id SERIAL PRIMARY KEY,
-    isValid BOOlEAN,
+    statusCode INT,
     domain TEXT UNIQUE    
 );
 
