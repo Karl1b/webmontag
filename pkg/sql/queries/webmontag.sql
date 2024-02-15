@@ -2,12 +2,12 @@
 -- name: CreatePage :one
 INSERT INTO pages (domain,searchDeep,maxSearchDeep) VALUES ($1, $2 , $3) RETURNING *;
 
--- name: CreateLink :many
-INSERT INTO links (domain) VALUES ($1) RETURNING id;
+/* -- name: CreateLink :many
+INSERT INTO links (domain) VALUES ($1) RETURNING id; */
 
 -- name: InsertOrGetLink :one
-INSERT INTO links (domain)
-VALUES ($1)
+INSERT INTO links (domain,isValid)
+VALUES ($1,$2)
 ON CONFLICT (domain) DO UPDATE 
 SET domain = EXCLUDED.domain
 RETURNING id;
@@ -22,7 +22,7 @@ SELECT * FROM pages;
 INSERT INTO pageslinks (pages_id, links_id) VALUES ($1, $2);
 
 -- name: GetLinksByPageID :many
-SELECT l.id, l.domain
+SELECT l.id, l.domain, l.isValid
 FROM links l
 INNER JOIN pageslinks pl ON l.id = pl.links_id
 WHERE pl.pages_id = $1;

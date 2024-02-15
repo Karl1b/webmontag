@@ -24,33 +24,6 @@ func (q *Queries) AssociateLinkWithPage(ctx context.Context, arg AssociateLinkWi
 	return err
 }
 
-const createLink = `-- name: CreateLink :many
-INSERT INTO links (domain) VALUES ($1) RETURNING id
-`
-
-func (q *Queries) CreateLink(ctx context.Context, domain sql.NullString) ([]int32, error) {
-	rows, err := q.db.QueryContext(ctx, createLink, domain)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []int32
-	for rows.Next() {
-		var id int32
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const createPage = `-- name: CreatePage :one
 INSERT INTO pages (domain,searchDeep,maxSearchDeep) VALUES ($1, $2 , $3) RETURNING id, domain, searchdeep, maxsearchdeep
 `
@@ -106,22 +79,28 @@ func (q *Queries) GetAllPages(ctx context.Context) ([]Page, error) {
 }
 
 const getLinksByPageID = `-- name: GetLinksByPageID :many
-SELECT l.id, l.domain
+SELECT l.id, l.domain, l.isValid
 FROM links l
 INNER JOIN pageslinks pl ON l.id = pl.links_id
 WHERE pl.pages_id = $1
 `
 
-func (q *Queries) GetLinksByPageID(ctx context.Context, pagesID sql.NullInt32) ([]Link, error) {
+type GetLinksByPageIDRow struct {
+	ID      int32          `json:"id"`
+	Domain  sql.NullString `json:"domain"`
+	Isvalid sql.NullBool   `json:"isvalid"`
+}
+
+func (q *Queries) GetLinksByPageID(ctx context.Context, pagesID sql.NullInt32) ([]GetLinksByPageIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, getLinksByPageID, pagesID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Link
+	var items []GetLinksByPageIDRow
 	for rows.Next() {
-		var i Link
-		if err := rows.Scan(&i.ID, &i.Domain); err != nil {
+		var i GetLinksByPageIDRow
+		if err := rows.Scan(&i.ID, &i.Domain, &i.Isvalid); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -168,15 +147,23 @@ func (q *Queries) GetPageByDomain(ctx context.Context, domain sql.NullString) ([
 }
 
 const insertOrGetLink = `-- name: InsertOrGetLink :one
-INSERT INTO links (domain)
-VALUES ($1)
+/* -- name: CreateLink :many
+INSERT INTO links (domain) VALUES ($1) RETURNING id; */
+
+INSERT INTO links (domain,isValid)
+VALUES ($1,$2)
 ON CONFLICT (domain) DO UPDATE 
 SET domain = EXCLUDED.domain
 RETURNING id
 `
 
-func (q *Queries) InsertOrGetLink(ctx context.Context, domain sql.NullString) (int32, error) {
-	row := q.db.QueryRowContext(ctx, insertOrGetLink, domain)
+type InsertOrGetLinkParams struct {
+	Domain  sql.NullString `json:"domain"`
+	Isvalid sql.NullBool   `json:"isvalid"`
+}
+
+func (q *Queries) InsertOrGetLink(ctx context.Context, arg InsertOrGetLinkParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, insertOrGetLink, arg.Domain, arg.Isvalid)
 	var id int32
 	err := row.Scan(&id)
 	return id, err

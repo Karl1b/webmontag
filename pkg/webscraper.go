@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -20,12 +21,17 @@ type subPage struct {
 	HasBeenScanned bool   `json:"hasBeenScanned"`
 }
 
+type externalLink struct {
+	Url     string `json:"url"`
+	IsValid bool   `json:"isValid"`
+}
+
 type pageDetails struct {
-	PageDomain      string    `json:"pageDomain"`
-	ScannedSubpages []subPage `json:"scannedSubpages"`
-	ExternalLinks   []string  `json:"externalLinks"`
-	SearchDeep      int       `json:"searchDeep"`
-	MaxSearchDeep   int       `json:"maxSearchDeep"`
+	PageDomain      string         `json:"pageDomain"`
+	ScannedSubpages []subPage      `json:"scannedSubpages"`
+	ExternalLinks   []externalLink `json:"externalLinks"`
+	SearchDeep      int            `json:"searchDeep"`
+	MaxSearchDeep   int            `json:"maxSearchDeep"`
 }
 
 func StartScraper(rawURL string, queries *database.Queries) {
@@ -53,6 +59,8 @@ func StartScraper(rawURL string, queries *database.Queries) {
 	)
 
 	scanOnePage(rawURL, &page, &opts) // Initial call of the recursive function
+
+	checkExternalLinks(&page, &opts)
 
 	// Marshall to json. This is for presentation only
 
@@ -96,7 +104,10 @@ func StartScraper(rawURL string, queries *database.Queries) {
 		}
 		for _, externalLink := range page.ExternalLinks {
 
-			externalLinkID, err := queries.InsertOrGetLink(context.Background(), sql.NullString{String: externalLink, Valid: true})
+			externalLinkID, err := queries.InsertOrGetLink(context.Background(), database.InsertOrGetLinkParams{
+				Domain:  sql.NullString{String: externalLink.Url, Valid: true},
+				Isvalid: sql.NullBool{Bool: externalLink.IsValid, Valid: true},
+			})
 			if err != nil {
 				fmt.Print("InsertLink Error")
 				fmt.Println(err)
@@ -184,7 +195,7 @@ func getLinks(ctx context.Context, page *pageDetails) error {
 
 		} else {
 			if !containsExternalLink(page.ExternalLinks, link) {
-				page.ExternalLinks = append(page.ExternalLinks, link)
+				page.ExternalLinks = append(page.ExternalLinks, externalLink{Url: link, IsValid: false})
 			}
 		}
 	}
@@ -200,9 +211,9 @@ func containsSubPage(slice []subPage, value string) bool {
 	return false
 }
 
-func containsExternalLink(slice []string, value string) bool {
+func containsExternalLink(slice []externalLink, value string) bool {
 	for _, v := range slice {
-		if v == value {
+		if v.Url == value {
 			return true
 		}
 	}
@@ -238,4 +249,69 @@ func ConcurrentScraper(urls []string, queries *database.Queries) {
 		}(url)
 	}
 	wg.Wait()
+}
+
+func checkExternalLinks(page *pageDetails, opts *[]func(*chromedp.ExecAllocator)) {
+
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, Options.maxGoRoutines) // Create a semaphore with a capacity of 5
+
+	for i, extLink := range page.ExternalLinks {
+		if !extLink.IsValid {
+
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				semaphore <- struct{}{}
+
+				checkExternalLink(&page.ExternalLinks[i], page, opts)
+
+				<-semaphore
+			}(i)
+		}
+	}
+	wg.Wait()
+
+}
+
+func checkExternalLink(extLink *externalLink, page *pageDetails, opts *[]func(*chromedp.ExecAllocator)) {
+	url := extLink.Url
+
+	ectx, ecancel := chromedp.NewExecAllocator(context.Background(), *opts...)
+	defer ecancel()
+	ctxone, cancel := chromedp.NewContext(ectx) // Create a new CDP context
+	defer cancel()
+	ctxWithTimeout, tcancel := context.WithTimeout(ctxone, time.Duration(Options.breaktimeS)*time.Second)
+	defer tcancel()
+
+	if err := chromedp.Run(ctxWithTimeout,
+		chromedp.Navigate(url),
+		//chromedp.Sleep(0.25*time.Second), or even sleep for a random value to trick webservers?
+	); err != nil {
+		fmt.Println("Failed to navigate to domain:", url, err)
+		return
+	}
+
+	var pageTitle, bodyContent string
+	err := chromedp.Run(ctxWithTimeout,
+		chromedp.Navigate(url),
+		chromedp.Title(&pageTitle), // Capture the page title
+		chromedp.Text("body", &bodyContent, chromedp.NodeVisible, chromedp.ByQuery), // Attempt to capture visible body text
+	)
+	if err != nil {
+		log.Printf("Failed to navigate to domain: %s, error: %v", url, err)
+		return
+	}
+
+	if pageTitle == "" || bodyContent == "" {
+		log.Printf("Page load failed or content is not accessible for URL: %s", url)
+	} else {
+		extLink.IsValid = true
+		log.Printf("Page loaded successfully with title: %s for URL: %s", pageTitle, url)
+		return
+		// Here you can fill the `page` details if needed, based on what you capture
+	}
+
+	extLink.IsValid = false
+
 }

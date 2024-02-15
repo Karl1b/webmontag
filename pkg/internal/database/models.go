@@ -9,8 +9,9 @@ import (
 )
 
 type Link struct {
-	ID     int32          `json:"id"`
-	Domain sql.NullString `json:"domain"`
+	ID      int32          `json:"id"`
+	Isvalid sql.NullBool   `json:"isvalid"`
+	Domain  sql.NullString `json:"domain"`
 }
 
 type Page struct {
