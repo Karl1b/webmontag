@@ -56,6 +56,7 @@ func StartScraper(rawURL string, queries *database.Queries) {
 		chromedp.Headless,
 		chromedp.DisableGPU,
 		chromedp.Flag("blink-settings", "imagesEnabled=false"),
+		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36"),
 	)
 
 	scanOnePage(rawURL, &page, &opts) // Initial call of the recursive function
@@ -152,7 +153,8 @@ func scanOnePage(currentPage string, page *pageDetails, opts *[]func(*chromedp.E
 
 	if err := chromedp.Run(ctxWithTimeout,
 		chromedp.Navigate(currentPage),
-		//chromedp.Sleep(0.25*time.Second), or even sleep for a random value to trick webservers?
+		chromedp.WaitVisible(`body`, chromedp.ByQuery), // Wait for the body to be visible
+		chromedp.Sleep(1*time.Second),
 	); err != nil {
 		fmt.Println("Failed to navigate to domain:", currentPage, err)
 		return
@@ -256,7 +258,7 @@ func checkExternalLinks(page *pageDetails, opts *[]func(*chromedp.ExecAllocator)
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, Options.maxGoRoutines) // Create a semaphore with a capacity of 5
 
-	for i, _ := range page.ExternalLinks {
+	for i := range page.ExternalLinks {
 
 		wg.Add(1)
 		go func(i int) {

@@ -16,7 +16,7 @@ This repository contains a high-performance web scraper and web server written i
 
 2. **PostgreSQL (Optional)**: If you wish to use a database for storing scrape results, install PostgreSQL and set up a database, user, and necessary permissions.
 
-3.**Goose (Mandatory for PostgreSQL)** [https://github.com/pressly/goose] (https://github.com/chromedp/chromedp)
+3. **Goose (Mandatory for PostgreSQL)** [https://github.com/pressly/goose] (https://github.com/chromedp/chromedp)
 
 ## Installation
 
@@ -35,6 +35,8 @@ sudo vim ./pkg/up.sh # Adjust
 
 ## Useage
 
+
+First change your .env file according to your needs, then:
 1. `./webmontag` This command displays available commands and their usage.
 2. `./webmontag scrape "https://example.com"` Scrapes a single url, logs json
 3. `./webmontag ultrascrape ["https://example.com","https://example2.com"]` scrapes many urls concurrently.
