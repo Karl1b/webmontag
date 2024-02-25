@@ -46,6 +46,15 @@ func (q *Queries) CreatePage(ctx context.Context, arg CreatePageParams) (Page, e
 	return i, err
 }
 
+const deleteAllPages = `-- name: DeleteAllPages :exec
+DELETE FROM pages
+`
+
+func (q *Queries) DeleteAllPages(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllPages)
+	return err
+}
+
 const getAllPages = `-- name: GetAllPages :many
 SELECT id, domain, searchdeep, maxsearchdeep FROM pages
 `

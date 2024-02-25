@@ -9,6 +9,8 @@
 *.dylib
 webmontag
 
+.excalidraw
+
 *.json
 .env
 # Test binary, built with `go test -c`

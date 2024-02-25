@@ -12,6 +12,9 @@ ON CONFLICT (domain) DO UPDATE
 SET domain = EXCLUDED.domain
 RETURNING id;
 
+-- name: DeleteAllPages :exec
+DELETE FROM pages;
+
 -- name: GetPageByDomain :many
 SELECT id, domain, searchdeep, maxsearchdeep FROM pages WHERE domain LIKE $1;
 

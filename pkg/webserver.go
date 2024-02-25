@@ -54,6 +54,8 @@ func Startwebserver(command string) {
 		queries := database.New(conn)
 		r.Post("/dbscrapepages", (dbscrapepages(queries)))
 		r.Get("/dbseepages", (dbseepages(queries)))
+		r.Get("/dbdeleteallpages", (dbdeleteAllPages(queries)))
+
 	}
 	r.Get("/", (handlerReadiness))
 	r.Post("/scrapepages", (scrapepages)) // post a page to scrape
@@ -197,5 +199,29 @@ func dbseepages(queries *database.Queries) http.HandlerFunc {
 		}
 
 		respondWithJSON(w, 200, GoodResponse{PageUrl: goodResponses})
+	}
+}
+
+func dbdeleteAllPages(queries *database.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		type Response struct {
+			Info string `json:"info"`
+		}
+
+		isKeyValid := keyCheck(r)
+		if !(isKeyValid) {
+			respondWithJSON(w, 400, Response{Info: "KEY INVALID"})
+			return
+		}
+
+		err := queries.DeleteAllPages(context.Background())
+		if err != nil {
+			fmt.Println(err)
+			respondWithJSON(w, 500, Response{Info: "Error getting results from database"})
+			return
+		}
+
+		respondWithJSON(w, 200, Response{Info: "All pages have been deleted"})
 	}
 }

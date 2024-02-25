@@ -19,7 +19,7 @@ var rootCmd = &cobra.Command{
 		fmt.Println("################################")
 		fmt.Println("Available commands:")
 		fmt.Println("scrape 'url'")
-		fmt.Println("ultrascrape ['url','url1']")
+		fmt.Println("ultrascrape 'url1' 'url2'")
 		fmt.Println("startserver")
 		fmt.Println("startserver db")
 	},

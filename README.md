@@ -1,5 +1,7 @@
 # Webmontag Golang Demo
 
+This is part of my presentation "Einführung in Golang" at [https://webwirtschaft.net/webmontag/](https://webwirtschaft.net/webmontag/) from 26.02.2024.
+
 This repository contains a high-performance web scraper and web server written in Go, designed to offer a basic introduction to the Go language. Its primary functionality includes scraping all external links from specified web pages and supporting concurrent scraping of multiple pages.
 
 **Important Note**: While this tool demonstrates powerful web scraping capabilities, it is crucial to use it responsibly. Web scraping may be subject to legal restrictions in your jurisdiction, and it's important to respect the terms of service of any website you interact with. This software is intended for educational purposes only and should not be deployed in production environments.
@@ -34,7 +36,6 @@ sudo vim ./pkg/up.sh # Adjust
 ```
 
 ## Useage
-
 
 First change your .env file according to your needs, then:
 1. `./webmontag` This command displays available commands and their usage.

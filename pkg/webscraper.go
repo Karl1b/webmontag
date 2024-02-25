@@ -63,10 +63,10 @@ func StartScraper(rawURL string, queries *database.Queries) {
 
 	checkExternalLinks(&page, &opts)
 
+	// TOSHOW: commend this out!?
+	page.ScannedSubpages = []subPage{} // Set this unintersing to empty.
+
 	// Marshall to json. This is for presentation only
-
-	page.ScannedSubpages = []subPage{} // Set this unintersing to empty
-
 	pageJSON, err := json.MarshalIndent(page, "", "  ")
 	if err != nil {
 		fmt.Println("Error converting page details to JSON:", err)
@@ -127,16 +127,16 @@ func StartScraper(rawURL string, queries *database.Queries) {
 	}
 }
 
-// this is the recursive scrape function
+// This is the recursive scrape function
 func scanOnePage(currentPage string, page *pageDetails, opts *[]func(*chromedp.ExecAllocator)) {
 
 	isImageURL := strings.HasSuffix(currentPage, ".gif") || strings.HasSuffix(currentPage, ".png") || strings.HasSuffix(currentPage, ".jpg")
 	if isImageURL {
-		return
+		return // Return if the url is an image.
 	}
 
 	if page.SearchDeep >= page.MaxSearchDeep {
-		return // max search deep reached.
+		return // Max search deep reached.
 	}
 	page.SearchDeep = page.SearchDeep + 1
 
@@ -165,7 +165,7 @@ func scanOnePage(currentPage string, page *pageDetails, opts *[]func(*chromedp.E
 	for index := range page.ScannedSubpages {
 		if !page.ScannedSubpages[index].HasBeenScanned {
 			page.ScannedSubpages[index].HasBeenScanned = true
-			scanOnePage(page.ScannedSubpages[index].FullUrl, page, opts)
+			scanOnePage(page.ScannedSubpages[index].FullUrl, page, opts) // Recursive call.
 		}
 	}
 }
@@ -233,10 +233,8 @@ func isValidURL(link string) bool {
 }
 
 func ConcurrentScraper(urls []string, queries *database.Queries) {
-
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, Options.maxGoRoutines) // Create a semaphore with a capacity of 5
-
 	for _, url := range urls {
 		wg.Add(1)
 		go func(url string) {
@@ -254,52 +252,28 @@ func ConcurrentScraper(urls []string, queries *database.Queries) {
 }
 
 func checkExternalLinks(page *pageDetails, opts *[]func(*chromedp.ExecAllocator)) {
-
+	// Here I use concurrency as an example, in production code this is probably not needed.
 	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, Options.maxGoRoutines) // Create a semaphore with a capacity of 5
-
+	semaphore := make(chan struct{}, Options.maxGoRoutines)
 	for i := range page.ExternalLinks {
 
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			semaphore <- struct{}{}
-
 			checkExternalLink(&page.ExternalLinks[i], page, opts)
-
 			<-semaphore
 		}(i)
-
 	}
 	wg.Wait()
-
 }
 
 func checkExternalLink(extLink *externalLink, page *pageDetails, opts *[]func(*chromedp.ExecAllocator)) {
-	url := extLink.Url
-
-	ectx, ecancel := chromedp.NewExecAllocator(context.Background(), *opts...)
-	defer ecancel()
-	ctxone, cancel := chromedp.NewContext(ectx) // Create a new CDP context
-	defer cancel()
-	ctxWithTimeout, tcancel := context.WithTimeout(ctxone, time.Duration(Options.breaktimeS)*time.Second)
-	defer tcancel()
-
-	if err := chromedp.Run(ctxWithTimeout,
-		chromedp.Navigate(url),
-		//chromedp.Sleep(0.25*time.Second), or even sleep for a random value to trick webservers?
-	); err != nil {
-		fmt.Println("Failed to navigate to domain:", url, err)
-		return
-	}
-
-	statuscode, err := getHTTPStatusCode(url)
+	statuscode, err := getHTTPStatusCode(extLink.Url)
 	if err != nil {
 		statuscode = 999
 	}
-
 	extLink.Statuscode = statuscode
-
 }
 
 func getHTTPStatusCode(url string) (int, error) {
