@@ -40,7 +40,7 @@ sudo vim ./pkg/up.sh # Adjust
 First change your .env file according to your needs, then:
 1. `./webmontag` This command displays available commands and their usage.
 2. `./webmontag scrape "https://example.com"` Scrapes a single url, logs json
-3. `./webmontag ultrascrape ["https://example.com","https://example2.com"]` scrapes many urls concurrently.
+3. `./webmontag ultrascrape "https://example.com" "https://example2.com"` scrapes many urls concurrently.
 4. `./webmontag startserver db'` Starts a webserver with a db connection.
 
 ### Server Interaction

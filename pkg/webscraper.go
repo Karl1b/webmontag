@@ -161,6 +161,7 @@ func scanOnePage(currentPage string, page *pageDetails, opts *[]func(*chromedp.E
 	}
 
 	getLinks(ctxWithTimeout, page)
+	tcancel()
 
 	for index := range page.ScannedSubpages {
 		if !page.ScannedSubpages[index].HasBeenScanned {
